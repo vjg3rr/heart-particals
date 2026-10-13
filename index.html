@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Heart Particle Simulation</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      background-color: #050811;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    canvas {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+
+  <canvas id="canvas"></canvas>
+
+  <script>
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+
+    let width = (canvas.width = window.innerWidth);
+    let height = (canvas.height = window.innerHeight);
+
+    window.addEventListener("resize", () => {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    });
+
+    const FLOAT_COUNT = 140;
+    const floatParticles = [];
+    const burstParticles = [];
+
+    // Glowing Blue Palette from the snippet
+    const BLUE_SHADES = [
+      "#3b82f6", // blue-500
+      "#60a5fa", // blue-400
+      "#93c5fd", // blue-300
+      "#2563eb", // blue-600
+      "#bfdbfe", // blue-200
+      "#1d4ed8"  // blue-700
+    ];
+
+    // Mathematical Heart Formula (Parametric)
+    function getHeartPosition(t) {
+      const x = 16 * Math.pow(Math.sin(t), 3);
+      const y = -(
+        13 * Math.cos(t) -
+        5 * Math.cos(2 * t) -
+        2 * Math.cos(3 * t) -
+        Math.cos(4 * t)
+      );
+      return { x, y };
+    }
+
+    class Particle {
+      constructor(x, y, type = "float") {
+        this.x = x;
+        this.y = y;
+        this.type = type;
+        this.color = BLUE_SHADES[Math.floor(Math.random() * BLUE_SHADES.length)];
+        this.size = Math.random() * 2.5 + 1;
+        this.maxLife = Math.random() * 100 + 100;
+        this.life = type === "float" ? Math.random() * this.maxLife : this.maxLife;
+
+        const angle = Math.random() * Math.PI * 2;
+        const speed = type === "burst" ? Math.random() * 4 + 1 : Math.random() * 0.5 + 0.2;
+
+        this.vx = Math.cos(angle) * speed;
+        this.vy = Math.sin(angle) * speed;
+        this.alpha = 1;
+      }
+
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.life--;
+        this.alpha = Math.max(0, this.life / this.maxLife);
+
+        if (this.type === "burst") {
+          this.vx *= 0.96;
+          this.vy *= 0.96;
+        }
+      }
+
+      draw() {
+        ctx.save();
+        ctx.globalAlpha = this.alpha;
+        ctx.fillStyle = this.color;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    // Populate Initial Floating Heart Particles
+    function initHeart() {
+      for (let i = 0; i < FLOAT_COUNT; i++) {
+        const step = (i / FLOAT_COUNT) * Math.PI * 2;
+        const pos = getHeartPosition(step);
+
+        // Scale and center the heart relative to screen size
+        const scale = Math.min(width, height) / 35;
+        const heartX = width / 2 + pos.x * scale;
+        const heartY = height / 2 + pos.y * scale;
+
+        const p = new Particle(heartX, heartY, "float");
+        p.life = Math.random() * p.maxLife; // Stagger starting life
+        floatParticles.push(p);
+      }
+    }
+
+    // Spawn Burst Effect
+    function spawnHeartBurst(x, y) {
+      const count = 140;
+      for (let i = 0; i < count; i++) {
+        burstParticles.push(new Particle(x, y, "burst"));
+      }
+    }
+
+    // Interactive burst on click/tap
+    window.addEventListener("click", (e) => {
+      spawnHeartBurst(e.clientX, e.clientY);
+    });
+
+    initHeart();
+
+    // Animation Loop
+    function animate() {
+      // Semi-transparent overlay to create smooth motion trails
+      ctx.fillStyle = "rgba(5, 8, 17, 0.25)";
+      ctx.fillRect(0, 0, width, height);
+
+      // Render Floating Heart Particles
+      floatParticles.forEach((p, index) => {
+        p.update();
+        p.draw();
+
+        // Respawn particle on heart outline when expired
+        if (p.life <= 0) {
+          const step = (index / FLOAT_COUNT) * Math.PI * 2;
+          const pos = getHeartPosition(step);
+          const scale = Math.min(width, height) / 35;
+          p.x = width / 2 + pos.x * scale;
+          p.y = height / 2 + pos.y * scale;
+          p.life = p.maxLife;
+        }
+      });
+
+      // Render Burst Particles
+      for (let i = burstParticles.length - 1; i >= 0; i--) {
+        const p = burstParticles[i];
+        p.update();
+        p.draw();
+
+        if (p.life <= 0) {
+          burstParticles.splice(i, 1);
+        }
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    animate();
+  </script>
+</body>
+</html>
